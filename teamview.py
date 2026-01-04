@@ -410,18 +410,36 @@ st.dataframe(
             df["home_team"] == team, df["away_score"], df["home_score"]
         ),
         date=lambda df: df["date"].dt.date,
+    )
+    .assign(
+        result=lambda df: np.where(
+            df["team_score"] > df["opponent_score"],
+            "W",
+            np.where(df["team_score"] < df["opponent_score"], "L", "D"),
+        )
     )[
         [
             "date",
             "tournament",
             "opponent",
+            "venue",
             "team_score",
             "opponent_score",
-            "venue",
+            "result",
         ]
-    ].reset_index(
-        drop=True
+    ]
+    .rename(
+        columns={
+            "date": "Date",
+            "tournament": "Tournament",
+            "opponent": "Opponent",
+            "venue": "Venue",
+            "team_score": "Team Score",
+            "opponent_score": "Opponent Score",
+            "result": "Result",
+        }
     )
+    .reset_index(drop=True)
 )
 
 st.plotly_chart(create_map(iso_data, scatter_data), use_container_width=True)

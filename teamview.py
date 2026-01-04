@@ -348,7 +348,36 @@ with st.sidebar:
         "Select an opponent:", opponent_list, index=opponent_idx, key="opponent"
     )
 
+    venue_opts = date_filtered.copy()
+    if tournament != "All":
+        venue_opts = venue_opts[venue_opts["tournament"] == tournament]
+    if opponent != "All":
+        venue_opts = venue_opts[venue_opts["opponent"] == opponent]
+
+    venue_opts = venue_opts.assign(
+        venue=lambda df: np.where(
+            df["neutral"] == True,
+            "Neutral",
+            np.where(df["home_team"] == team, "Home", "Away"),
+        )
+    )
+
+    venue_order = ["Home", "Neutral", "Away"]
+    available_venues = [v for v in venue_order if v in venue_opts["venue"].unique()]
+    venue_list = ["All"] + available_venues
+    venue = st.selectbox("Select a venue:", venue_list, index=0)
+
 filtered = filter_matches(date_filtered, date_range, tournament, opponent)
+if venue != "All":
+    filtered = filtered.assign(
+        venue_temp=lambda df: np.where(
+            df["neutral"] == True,
+            "Neutral",
+            np.where(df["home_team"] == team, "Home", "Away"),
+        )
+    )
+    filtered = filtered[filtered["venue_temp"] == venue].drop(columns=["venue_temp"])
+
 overall = calc_rate(calc_stats(date_filtered))
 avg = overall["rate"].mean() if not overall.empty else 0
 
@@ -370,9 +399,15 @@ scatter_data = build_scatter_data(
 st.dataframe(
     filtered.assign(
         venue=lambda df: np.where(
-            df["home_team"] == team,
-            "Home",
-            np.where(df["away_team"] == team, "Away", "Neutral"),
+            df["neutral"] == True,
+            "Neutral",
+            np.where(df["home_team"] == team, "Home", "Away"),
+        ),
+        team_score=lambda df: np.where(
+            df["home_team"] == team, df["home_score"], df["away_score"]
+        ),
+        opponent_score=lambda df: np.where(
+            df["home_team"] == team, df["away_score"], df["home_score"]
         ),
         date=lambda df: df["date"].dt.date,
     )[
@@ -380,10 +415,9 @@ st.dataframe(
             "date",
             "tournament",
             "opponent",
+            "team_score",
+            "opponent_score",
             "venue",
-            "home_score",
-            "away_score",
-            "result",
         ]
     ].reset_index(
         drop=True
